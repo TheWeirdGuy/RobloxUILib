@@ -58,10 +58,21 @@ function Aurelia.new(options)
 	local self = setmetatable({ _tabs = {}, _connections = {}, _visible = true }, Window)
 	self._key = options.ToggleKey or Enum.KeyCode.RightShift
 	self._targetSize = options.Size or UDim2.fromOffset(840, 520)
+	self._menuId = options.MenuId or "AureliaUI"
+	assert(type(self._menuId) == "string" and self._menuId ~= "", "MenuId must be a non-empty string")
 
-	local screen = new("ScreenGui", { Name = "AureliaUI", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 50, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+	local screenParent = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui")
+	local existing = screenParent:FindFirstChild(self._menuId)
+	if existing then
+		local cleanup = existing:FindFirstChild("AureliaCleanup")
+		if cleanup and cleanup:IsA("BindableEvent") then cleanup:Fire() else existing:Destroy() end
+	end
+
+	local screen = new("ScreenGui", { Name = self._menuId, ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 50, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
 	self._screen = screen
-	screen.Parent = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui")
+	screen.Parent = screenParent
+	local cleanup = new("BindableEvent", { Name = "AureliaCleanup", Parent = screen })
+	table.insert(self._connections, cleanup.Event:Connect(function() self:Destroy() end))
 	local dim = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(), BackgroundTransparency = 0.42, BorderSizePixel = 0, Parent = screen })
 	local root = new("Frame", { Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = self._targetSize, BackgroundColor3 = Theme.Background, BorderSizePixel = 0, ClipsDescendants = true, Parent = dim })
 	self._root = root; round(root, 14); outline(root, 0.1)
@@ -83,9 +94,13 @@ function Aurelia.new(options)
 	local status = label(profile, "●  Connected", 9, Theme.Success); status.Position = UDim2.fromOffset(48, 23)
 
 	local top = new("Frame", { Position = UDim2.fromOffset(210, 0), Size = UDim2.new(1, -210, 0, 76), BackgroundTransparency = 1, Parent = root })
-	local pageTitle = label(top, "Dashboard", 18, Theme.Text, Enum.FontWeight.Bold); pageTitle.Position = UDim2.fromOffset(24, 18); pageTitle.Size = UDim2.new(1, -110, 0, 24); self._pageTitle = pageTitle
+	local pageTitle = label(top, "Dashboard", 18, Theme.Text, Enum.FontWeight.Bold); pageTitle.Position = UDim2.fromOffset(24, 18); pageTitle.Size = UDim2.new(1, -170, 0, 24); self._pageTitle = pageTitle
 	local pageSub = label(top, "Configure your experience", 10, Theme.Muted); pageSub.Position = UDim2.fromOffset(24, 43); self._pageSub = pageSub
-	local badge = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 24), Size = UDim2.fromOffset(72, 28), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = self._key.Name, TextColor3 = Theme.Muted, TextSize = 9, FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold), Parent = top }); round(badge, 7); outline(badge, 0.35)
+	local badge = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -64, 0, 24), Size = UDim2.fromOffset(72, 28), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, Text = self._key.Name, TextColor3 = Theme.Muted, TextSize = 9, FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold), Parent = top }); round(badge, 7); outline(badge, 0.35)
+	local close = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 22), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, AutoButtonColor = false, Text = "X", TextColor3 = Theme.Muted, TextSize = 12, FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold), Parent = top }); round(close, 8); outline(close, 0.35)
+	close.MouseEnter:Connect(function() animate(close, { BackgroundColor3 = Theme.Danger, TextColor3 = Theme.Text }) end)
+	close.MouseLeave:Connect(function() animate(close, { BackgroundColor3 = Theme.Surface, TextColor3 = Theme.Muted }) end)
+	close.Activated:Connect(function() self:Close() end)
 	self._content = new("Frame", { Position = UDim2.fromOffset(210, 76), Size = UDim2.new(1, -210, 1, -76), BackgroundTransparency = 1, ClipsDescendants = true, Parent = root })
 	self._notifications = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18), Size = UDim2.fromOffset(290, 300), BackgroundTransparency = 1, Parent = screen })
 	new("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Bottom, Parent = self._notifications })
@@ -104,6 +119,14 @@ function Window:SetVisible(visible)
 	local target, compact = self._targetSize, UDim2.new(self._targetSize.X.Scale, self._targetSize.X.Offset - 50, self._targetSize.Y.Scale, self._targetSize.Y.Offset - 40)
 	if visible then self._screen.Enabled = true; self._root.Size = compact; animate(self._root, { Size = target, BackgroundTransparency = 0 })
 	else animate(self._root, { Size = compact, BackgroundTransparency = 0.2 }); task.delay(0.18, function() if not self._visible and self._screen.Parent then self._screen.Enabled = false end end) end
+end
+
+function Window:Close()
+	if self._destroyed then return end
+	self._visible = false
+	local target = self._targetSize
+	animate(self._root, { Size = UDim2.new(target.X.Scale, target.X.Offset - 50, target.Y.Scale, target.Y.Offset - 40), BackgroundTransparency = 0.25 })
+	task.delay(0.18, function() self:Destroy() end)
 end
 
 function Window:AddTab(options)
@@ -137,7 +160,12 @@ function Window:Notify(options)
 	animate(toast, { BackgroundTransparency = 0 }); task.delay(options.Duration or 4, function() if toast.Parent then animate(toast, { BackgroundTransparency = 1 }); task.delay(0.2, function() toast:Destroy() end) end end)
 end
 
-function Window:Destroy() for _, connection in self._connections do connection:Disconnect() end; self._screen:Destroy() end
+function Window:Destroy()
+	if self._destroyed then return end
+	self._destroyed = true
+	for _, connection in self._connections do connection:Disconnect() end
+	if self._screen and self._screen.Parent then self._screen:Destroy() end
+end
 
 function Tab:AddSection(options)
 	if type(options) == "string" then options = { Name = options } end
