@@ -200,6 +200,52 @@ function Section:AddDropdown(options)
 	return { Set = function(_, v) selected = v; button.Text = tostring(v); callback(options.Callback, v) end, Get = function() return selected end }
 end
 
+function Section:AddColorPicker(options)
+	local value = options.Default or Color3.fromRGB(39, 201, 255)
+	local hue, saturation, brightness = value:ToHSV()
+	local holder = self:_row(64)
+	local title = label(holder, options.Name or "Color picker", 10, Theme.Text, Enum.FontWeight.SemiBold); title.Size = UDim2.new(1, -140, 0, 18)
+	local hex = label(holder, "", 9, Theme.Muted, Enum.FontWeight.SemiBold); hex.AnchorPoint = Vector2.new(1, 0); hex.Position = UDim2.fromScale(1, 0); hex.Size = UDim2.fromOffset(94, 18); hex.TextXAlignment = Enum.TextXAlignment.Right
+	local button = new("TextButton", { Position = UDim2.fromOffset(0, 25), Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Theme.Raised, BorderSizePixel = 0, AutoButtonColor = false, Text = "", Parent = holder }); round(button, 7); outline(button, 0.4)
+	local preview = new("Frame", { Position = UDim2.fromOffset(8, 7), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = value, BorderSizePixel = 0, Parent = button }); round(preview, 5); outline(preview, 0.25)
+	local buttonText = label(button, "Open color picker", 9, Theme.Text, Enum.FontWeight.Medium); buttonText.Position = UDim2.fromOffset(36, 3); buttonText.Size = UDim2.new(1, -48, 0, 26)
+
+	local panel = new("Frame", { Position = UDim2.fromOffset(0, 65), Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Theme.Raised, BorderSizePixel = 0, ClipsDescendants = true, Visible = false, Parent = holder }); round(panel, 8); outline(panel, 0.35)
+	local sv = new("Frame", { Position = UDim2.fromOffset(10, 10), Size = UDim2.new(1, -48, 0, 130), BackgroundColor3 = Color3.fromHSV(hue, 1, 1), BorderSizePixel = 0, Parent = panel }); round(sv, 6)
+	local white = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Parent = sv }); round(white, 6)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }), Parent = white })
+	local black = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, Parent = sv }); round(black, 6)
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }), Parent = black })
+	local svInput = new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 4, Parent = sv })
+	local svCursor = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(10, 10), BackgroundTransparency = 1, ZIndex = 5, Parent = sv }); round(svCursor, 5); outline(svCursor, 0)
+
+	local hueBar = new("Frame", { Position = UDim2.new(1, -28, 0, 10), Size = UDim2.fromOffset(18, 130), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Parent = panel }); round(hueBar, 6)
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)), ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0)) }), Parent = hueBar })
+	local hueInput = new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 4, Parent = hueBar })
+	local hueCursor = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, hue), Size = UDim2.new(1, 6, 0, 3), BackgroundColor3 = Theme.Text, BorderSizePixel = 0, ZIndex = 5, Parent = hueBar }); round(hueCursor, 2); outline(hueCursor, 0.25)
+	local rgb = label(panel, "", 9, Theme.Muted, Enum.FontWeight.Medium); rgb.Position = UDim2.fromOffset(10, 146); rgb.Size = UDim2.new(1, -20, 0, 20)
+
+	local function update(call)
+		value = Color3.fromHSV(hue, saturation, brightness)
+		preview.BackgroundColor3 = value; sv.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+		svCursor.Position = UDim2.fromScale(saturation, 1 - brightness); hueCursor.Position = UDim2.fromScale(0.5, hue)
+		local r, g, b = math.floor(value.R * 255 + 0.5), math.floor(value.G * 255 + 0.5), math.floor(value.B * 255 + 0.5)
+		hex.Text = string.format("#%02X%02X%02X", r, g, b); rgb.Text = string.format("RGB  %d, %d, %d", r, g, b)
+		if call then callback(options.Callback, value) end
+	end
+	local draggingSV, draggingHue = false, false
+	local function setSV(input) saturation = math.clamp((input.Position.X - sv.AbsolutePosition.X) / sv.AbsoluteSize.X, 0, 1); brightness = 1 - math.clamp((input.Position.Y - sv.AbsolutePosition.Y) / sv.AbsoluteSize.Y, 0, 1); update(true) end
+	local function setHue(input) hue = math.clamp((input.Position.Y - hueBar.AbsolutePosition.Y) / hueBar.AbsoluteSize.Y, 0, 1); update(true) end
+	svInput.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingSV = true; setSV(input) end end)
+	hueInput.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingHue = true; setHue(input) end end)
+	table.insert(self._tab._window._connections, UserInputService.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then if draggingSV then setSV(input) elseif draggingHue then setHue(input) end end end))
+	table.insert(self._tab._window._connections, UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingSV, draggingHue = false, false end end))
+	local open = false
+	button.Activated:Connect(function() open = not open; panel.Visible = true; buttonText.Text = open and "Close color picker" or "Open color picker"; animate(panel, { Size = UDim2.new(1, 0, 0, open and 176 or 0) }); animate(holder, { Size = UDim2.new(1, 0, 0, open and 247 or 64) }); if not open then task.delay(0.18, function() if not open then panel.Visible = false end end) end end)
+	update(false)
+	return { Set = function(_, color) if typeof(color) ~= "Color3" then error("ColorPicker:Set expects a Color3", 2) end; value = color; hue, saturation, brightness = color:ToHSV(); update(true) end, Get = function() return value end }
+end
+
 function Section:AddLabel(value)
 	local item = label(self._card, value, 9, Theme.Muted); item.Size = UDim2.new(1, 0, 0, 20); item.TextWrapped = true; item.TextTruncate = Enum.TextTruncate.None; item.AutomaticSize = Enum.AutomaticSize.Y; return item
 end
