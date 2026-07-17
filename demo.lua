@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Aurelia = require(ReplicatedStorage:WaitForChild("AureliaUI"))
 
 local window = Aurelia.new({
+	MenuId = "AureliaDemo",
 	Title = "AURELIA",
 	Subtitle = "PREMIUM SUITE",
 	ToggleKey = Enum.KeyCode.RightShift,
