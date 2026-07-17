@@ -23,6 +23,8 @@ aim:AddToggle({
 	Name = "Enable silent aim",
 	Description = "Activates the targeting system",
 	Default = true,
+	Flag = "SilentAim",
+	Tooltip = "Turns the targeting assistant on or off.",
 	Callback = function(enabled)
 		print("Silent aim:", enabled)
 	end,
@@ -41,6 +43,7 @@ aim:AddSlider({
 	Default = 120,
 	Increment = 5,
 	Suffix = "°",
+	Flag = "AimFov",
 })
 
 aim:AddDropdown({
@@ -63,9 +66,17 @@ local players = visuals:AddSection({ Name = "Player ESP", Description = "Clear, 
 players:AddToggle({ Name = "Player outlines", Description = "Draw an outline around visible players" })
 players:AddToggle({ Name = "Name tags", Description = "Show display names and distance", Default = true })
 players:AddDropdown({ Name = "Outline style", Options = { "Glow", "Solid", "Minimal" }, Default = "Glow" })
+players:AddMultiDropdown({
+	Name = "ESP details",
+	Options = { "Names", "Distance", "Health", "Tool" },
+	Default = { "Names", "Distance" },
+	Flag = "EspDetails",
+	Tooltip = "Select every detail that should appear on player ESP.",
+})
 players:AddColorPicker({
 	Name = "Outline color",
 	Default = Color3.fromRGB(39, 201, 255),
+	Flag = "OutlineColor",
 	Callback = function(color)
 		print("Outline color:", color)
 	end,
@@ -79,6 +90,32 @@ local utility = window:AddTab({ Name = "Utility", Icon = "✦", Description = "Q
 local movement = utility:AddSection({ Name = "Movement", Description = "Responsive movement adjustments" })
 movement:AddSlider({ Name = "Walk speed", Min = 16, Max = 100, Default = 24 })
 movement:AddToggle({ Name = "Infinite jump", Description = "Jump again while airborne" })
+movement:AddKeybind({
+	Name = "Utility hotkey",
+	Description = "Press the key to show a notification",
+	Default = Enum.KeyCode.K,
+	Flag = "UtilityKey",
+	Tooltip = "Click the key field, then press a new keyboard key.",
+	Callback = function(key)
+		window:Notify({ Title = "Keybind triggered", Content = key.Name .. " was pressed." })
+	end,
+})
+
+local dialogs = utility:AddSection({ Name = "Dialogs", Description = "Modal messages and confirmations" })
+dialogs:AddButton({
+	Name = "Open confirmation",
+	Tooltip = "Displays a modal dialog above the current window.",
+	Callback = function()
+		window:Dialog({
+			Title = "Confirm action",
+			Content = "This is a modal message box. Choose an action to continue.",
+			Buttons = {
+				{ Name = "Cancel" },
+				{ Name = "Confirm", Color = Aurelia.Palette.AccentDark, Callback = function() window:Notify("Confirmed") end },
+			},
+		})
+	end,
+})
 
 local settings = window:AddTab({ Name = "Settings", Icon = "⚙", Description = "Interface preferences and profiles" })
 local profiles = settings:AddSection({ Name = "Profiles", Description = "Save and switch configurations" })
@@ -86,6 +123,14 @@ profiles:AddInput({ Name = "Profile name", Placeholder = "Enter a profile name",
 profiles:AddDropdown({ Name = "Active profile", Options = { "Default", "Competitive", "Legit" }, Default = "Default" })
 profiles:AddButton({ Name = "Save current profile", Callback = function() window:Notify("Profile saved") end })
 profiles:AddLabel("Press RightShift at any time to hide or show the interface.")
+profiles:AddButton({
+	Name = "Print current flags",
+	Callback = function()
+		for name, value in window.Flags do
+			print(name, value)
+		end
+	end,
+})
 
 window:Notify({
 	Title = "Welcome to Aurelia",
